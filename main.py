@@ -99,6 +99,15 @@ def open_gate():
     sleep(1)
     # p.stop()
     gate_pin.stop()
+
+def close_gate():
+    gate_pin.start(0)
+    gate_pin.ChangeDutyCycle(12)
+    sleep(1)
+    gate_pin.ChangeDutyCycle(3)
+    sleep(1)
+    gate_pin.stop()
+
     
 def get_vehicle_status(vehicle_reg_number):
     conn = get_db_connection()
@@ -151,30 +160,82 @@ def get_meter_reading(image_path):
         
     return rupees, litres
 
+# def main():
+#     while True:
+#         if GPIO.input(13):
+#             print("Object detected")
+#             image_name = capture_image("vehicle")
+#             if image_name is None:
+#                 print("no image name")
+#             image_path=f"images/vehicle_reg_numbers/{image_name}.jpg"
+#             vehicle_reg_number=get_vehicle_reg_number(image_path)
+#             print(vehicle_reg_number)
+#             vehicle_status=get_vehicle_status(vehicle_reg_number)
+#             print(vehicle_status)
+#             if vehicle_status:
+#                 open_gate()
+#                 meter_reading_0_image_name = capture_image("meter")
+#                 meter_reading_0_image_path = f"images/meter_readings/{meter_reading_0_image_name}.jpg"
+#                 amount, litres = get_meter_reading(meter_reading_0_image_path)
+#                 print("amount: ", amount)
+#                 print("litres: ", litres)
+#             else:
+#                 print("Not a registered vehicle")
+#         else:
+#             print("No object")
+
+
 def main():
     while True:
         if GPIO.input(13):
-            print("Object detected")
+            print("Object detected (Vehicle)")
             image_name = capture_image("vehicle")
             if image_name is None:
                 print("no image name")
-            image_path=f"images/vehicle_reg_numbers/{image_name}.jpg"
-            vehicle_reg_number=get_vehicle_reg_number(image_path)
+                continue  # Go back to start of loop
+            
+            image_path = f"images/vehicle_reg_numbers/{image_name}.jpg"
+            vehicle_reg_number = get_vehicle_reg_number(image_path)
             print(vehicle_reg_number)
-            vehicle_status=get_vehicle_status(vehicle_reg_number)
+            
+            vehicle_status = get_vehicle_status(vehicle_reg_number)
             print(vehicle_status)
+            
             if vehicle_status:
+                print("Vehicle verified. Opening gate...")
                 open_gate()
-                meter_reading_0_image_name = capture_image("meter")
-                meter_reading_0_image_path = f"images/meter_readings/{meter_reading_0_image_name}.jpg"
-                amount, litres = get_meter_reading(meter_reading_0_image_path)
-                print("amount: ", amount)
-                print("litres: ", litres)
+                
+                print("Gate opened. Waiting 5 seconds before closing...")
+                sleep(5)  # Wait 5 seconds before closing gate
+                
+                print("Closing gate...")
+                close_gate()  # You need to add this function below!
+                
+                print("Waiting for IR sensor again to capture meter reading...")
+                
+                # Now wait again for IR sensor
+                while True:
+                    if GPIO.input(13):
+                        print("Object detected (Pump)")
+                        meter_image_name = capture_image("meter")
+                        if meter_image_name is None:
+                            print("no meter image")
+                            continue  # Retry
+                        
+                        meter_image_path = f"images/meter_readings/{meter_image_name}.jpg"
+                        amount, litres = get_meter_reading(meter_image_path)
+                        print("amount: ", amount)
+                        print("litres: ", litres)
+                        
+                        break  # After meter reading, break inner loop
+                    else:
+                        sleep(0.1)  # Small delay to prevent overloading CPU
             else:
                 print("Not a registered vehicle")
         else:
-            print("No object")
-                
+            sleep(0.1)  # No object detected, small sleep to avoid busy loop
+
+
                 
 if __name__ == "__main__":
     main()
